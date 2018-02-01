@@ -59,13 +59,10 @@ class HeaderBackButton extends React.PureComponent<DefaultProps, Props, State> {
   componentDidMount () {
     // This resets the accessibiltiy to this button when it mounts with a delay for the animation to complete
     // This component must still be mounted
-      
-  this._isMounted = false
+  const handle = findNodeHandle(this)
+  // this._isMounted = false
     setTimeout(() => {
-      if (!this._isMounted) return
-
-      const handle = findNodeHandle(this)
-
+      // if (!this._isMounted) return
       if (handle) {
         AccessibilityInfo.setAccessibilityFocus(handle)
       }
