@@ -63,7 +63,7 @@ class HeaderBackButton extends React.PureComponent<DefaultProps, Props, State> {
   // this._isMounted = false
     setTimeout(() => {
       // if (!this._isMounted) return
-      if (handle) {
+      if (Platform.OS === 'ios' && handle) {
         AccessibilityInfo.setAccessibilityFocus(handle)
       }
     }, 300)
