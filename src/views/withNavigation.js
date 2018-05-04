@@ -1,31 +1,36 @@
-/* @flow */
-
 import React from 'react';
 import propTypes from 'prop-types';
 import hoistStatics from 'hoist-non-react-statics';
+import invariant from '../utils/invariant';
+import { NavigationConsumer } from './NavigationContext';
 
-import type { NavigationState, NavigationAction } from '../TypeDefinition';
+export default function withNavigation(Component) {
+  class ComponentWithNavigation extends React.Component {
+    static displayName = `withNavigation(${Component.displayName ||
+      Component.name})`;
 
-type Context = {
-  navigation: InjectedProps<NavigationState, NavigationAction>,
-};
+    render() {
+      const navigationProp = this.props.navigation;
+      return (
+        <NavigationConsumer>
+          {navigationContext => {
+            const navigation = navigationProp || navigationContext;
+            invariant(
+              !!navigation,
+              'withNavigation can only be used on a view hierarchy of a navigator. The wrapped component is unable to get access to navigation from props or context.'
+            );
+            return (
+              <Component
+                {...this.props}
+                navigation={navigation}
+                ref={this.props.onRef}
+              />
+            );
+          }}
+        </NavigationConsumer>
+      );
+    }
+  }
 
-type InjectedProps = {
-  navigation: InjectedProps<NavigationState, NavigationAction>,
-};
-
-export default function withNavigation<T: *>(
-  Component: ReactClass<T & InjectedProps>
-) {
-  const componentWithNavigation = (props: T, { navigation }: Context) => (
-    <Component {...props} navigation={navigation} />
-  );
-
-  componentWithNavigation.displayName = `withNavigation(${Component.displayName || Component.name})`;
-
-  componentWithNavigation.contextTypes = {
-    navigation: propTypes.object.isRequired,
-  };
-
-  return hoistStatics(componentWithNavigation, Component);
+  return hoistStatics(ComponentWithNavigation, Component);
 }

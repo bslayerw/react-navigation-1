@@ -1,56 +1,24 @@
-/* @flow */
-
-import React, { PureComponent } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import withCachedChildNavigation from '../../withCachedChildNavigation';
-
-import type {
-  NavigationScreenProp,
-  NavigationRoute,
-  NavigationAction,
-  NavigationRouter,
-  NavigationDrawerScreenOptions,
-  NavigationState,
-  NavigationStateRoute,
-  Style,
-} from '../../TypeDefinition';
-
-import type { DrawerScene, DrawerItem } from './DrawerView';
-
-type Navigation = NavigationScreenProp<NavigationStateRoute, NavigationAction>;
-
-type Props = {
-  router: NavigationRouter<
-    NavigationState,
-    NavigationAction,
-    NavigationDrawerScreenOptions
-  >,
-  navigation: Navigation,
-  childNavigationProps: { [key: string]: Navigation },
-  contentComponent: ReactClass<*>,
-  contentOptions?: {},
-  screenProps?: {},
-  style?: Style,
-};
+import NavigationActions from '../../NavigationActions';
+import invariant from '../../utils/invariant';
 
 /**
  * Component that renders the sidebar screen of the drawer.
  */
-class DrawerSidebar extends PureComponent<void, Props, void> {
-  props: Props;
 
-  _getScreenOptions = (routeKey: string) => {
-    const DrawerScreen = this.props.router.getComponentForRouteName(
-      'DrawerClose'
+class DrawerSidebar extends React.PureComponent {
+  _getScreenOptions = routeKey => {
+    const descriptor = this.props.descriptors[routeKey];
+    invariant(
+      descriptor.options,
+      'Cannot access screen descriptor options from drawer sidebar'
     );
-    return DrawerScreen.router.getScreenOptions(
-      this.props.childNavigationProps[routeKey],
-      this.props.screenProps
-    );
+    return descriptor.options;
   };
 
-  _getLabel = ({ focused, tintColor, route }: DrawerScene) => {
+  _getLabel = ({ focused, tintColor, route }) => {
     const { drawerLabel, title } = this._getScreenOptions(route.key);
     if (drawerLabel) {
       return typeof drawerLabel === 'function'
@@ -65,7 +33,7 @@ class DrawerSidebar extends PureComponent<void, Props, void> {
     return route.routeName;
   };
 
-  _renderIcon = ({ focused, tintColor, route }: DrawerScene) => {
+  _renderIcon = ({ focused, tintColor, route }) => {
     const { drawerIcon } = this._getScreenOptions(route.key);
     if (drawerIcon) {
       return typeof drawerIcon === 'function'
@@ -75,39 +43,56 @@ class DrawerSidebar extends PureComponent<void, Props, void> {
     return null;
   };
 
-  _onItemPress = ({ route }: DrawerItem) => {
-    this.props.navigation.navigate('DrawerClose');
-    this.props.navigation.navigate(route.routeName);
+  _onItemPress = ({ route, focused }) => {
+    if (!focused) {
+      let subAction;
+      // if the child screen is a StackRouter then always navigate to its first screen (see #1914)
+      if (route.index !== undefined && route.index !== 0) {
+        subAction = NavigationActions.reset({
+          index: 0,
+          actions: [
+            NavigationActions.navigate({
+              routeName: route.routes[0].routeName,
+            }),
+          ],
+        });
+      }
+      this.props.navigation.navigate(route.routeName, undefined, subAction);
+    }
   };
 
   render() {
     const ContentComponent = this.props.contentComponent;
+    if (!ContentComponent) {
+      return null;
+    }
     const { state } = this.props.navigation;
+    invariant(typeof state.index === 'number', 'should be set');
     return (
       <View style={[styles.container, this.props.style]}>
         <ContentComponent
           {...this.props.contentOptions}
           navigation={this.props.navigation}
+          descriptors={this.props.descriptors}
           items={state.routes}
           activeItemKey={
-            state.routes[state.index] && state.routes[state.index].key
+            state.routes[state.index] ? state.routes[state.index].key : null
           }
           screenProps={this.props.screenProps}
           getLabel={this._getLabel}
           renderIcon={this._renderIcon}
           onItemPress={this._onItemPress}
-          router={this.props.router}
+          drawerPosition={this.props.drawerPosition}
         />
       </View>
     );
   }
 }
 
-export default withCachedChildNavigation(DrawerSidebar);
+export default DrawerSidebar;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
 });

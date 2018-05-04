@@ -1,40 +1,110 @@
-/* @flow */
-
 import React from 'react';
 
-import type {
-  NavigationRouter,
-  NavigationNavigator,
-  NavigationNavigatorProps,
-  NavigationRouteConfigMap,
-} from '../TypeDefinition';
+import getChildEventSubscriber from '../getChildEventSubscriber';
 
-import type { NavigatorType } from './NavigatorTypes';
-
-/**
- * Creates a navigator based on a router and a view that renders the screens.
- */
-const createNavigator = (
-  router: NavigationRouter<*, *, *>,
-  routeConfigs: NavigationRouteConfigMap,
-  navigatorConfig: any,
-  navigatorType: NavigatorType
-) => (View: NavigationNavigator<*, *, *, *>) => {
+function createNavigator(NavigatorView, router, navigationConfig) {
   class Navigator extends React.Component {
-    props: NavigationNavigatorProps<*>;
-
     static router = router;
+    static navigationOptions = null;
 
-    static routeConfigs = routeConfigs;
-    static navigatorConfig = navigatorConfig;
-    static navigatorType = navigatorType;
+    childEventSubscribers = {};
+
+    // Cleanup subscriptions for routes that no longer exist
+    componentDidUpdate() {
+      const activeKeys = this.props.navigation.state.routes.map(r => r.key);
+      Object.keys(this.childEventSubscribers).forEach(key => {
+        if (!activeKeys.includes(key)) {
+          this.childEventSubscribers[key].removeAll();
+          delete this.childEventSubscribers[key];
+        }
+      });
+    }
+
+    // Remove all subscriptions
+    componentWillUnmount() {
+      Object.values(this.childEventSubscribers).map(s => s.removeAll());
+    }
+
+    _isRouteFocused = route => {
+      const { state } = this.props.navigation;
+      const focusedRoute = state.routes[state.index];
+      return route === focusedRoute;
+    };
+
+    _dangerouslyGetParent = () => {
+      return this.props.navigation;
+    };
 
     render() {
-      return <View {...this.props} router={router} />;
+      const { navigation, screenProps } = this.props;
+      const { dispatch, state, addListener } = navigation;
+      const { routes } = state;
+
+      const descriptors = {};
+      routes.forEach(route => {
+        const getComponent = () =>
+          router.getComponentForRouteName(route.routeName);
+
+        if (!this.childEventSubscribers[route.key]) {
+          this.childEventSubscribers[route.key] = getChildEventSubscriber(
+            addListener,
+            route.key
+          );
+        }
+
+        const actionCreators = {
+          ...navigation.actions,
+          ...router.getActionCreators(route, state.key),
+        };
+        const actionHelpers = {};
+        Object.keys(actionCreators).forEach(actionName => {
+          actionHelpers[actionName] = (...args) => {
+            const actionCreator = actionCreators[actionName];
+            const action = actionCreator(...args);
+            dispatch(action);
+          };
+        });
+        const childNavigation = {
+          ...actionHelpers,
+          actions: actionCreators,
+          dispatch,
+          state: route,
+          isFocused: () => this._isRouteFocused(route),
+          dangerouslyGetParent: this._dangerouslyGetParent,
+          addListener: this.childEventSubscribers[route.key].addListener,
+          getParam: (paramName, defaultValue) => {
+            const params = route.params;
+
+            if (params && paramName in params) {
+              return params[paramName];
+            }
+
+            return defaultValue;
+          },
+        };
+
+        const options = router.getScreenOptions(childNavigation, screenProps);
+        descriptors[route.key] = {
+          key: route.key,
+          getComponent,
+          options,
+          state: route,
+          navigation: childNavigation,
+        };
+      });
+
+      return (
+        <NavigatorView
+          {...this.props}
+          screenProps={screenProps}
+          navigation={navigation}
+          navigationConfig={navigationConfig}
+          descriptors={descriptors}
+        />
+      );
     }
   }
-
   return Navigator;
-};
+}
 
 export default createNavigator;

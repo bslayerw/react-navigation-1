@@ -1,61 +1,57 @@
-/* @flow */
-
 import NavigationActions from '../NavigationActions';
 
-describe('actions', () => {
-  const data = { foo: 'bar' };
+describe('generic navigation actions', () => {
+  const params = { foo: 'bar' };
+  const navigateAction = NavigationActions.navigate({ routeName: 'another' });
 
   it('exports back action and type', () => {
     expect(NavigationActions.back()).toEqual({ type: NavigationActions.BACK });
-    expect(NavigationActions.back(data)).toEqual({
+    expect(NavigationActions.back({ key: 'test' })).toEqual({
       type: NavigationActions.BACK,
-      ...data,
+      key: 'test',
     });
   });
 
   it('exports init action and type', () => {
     expect(NavigationActions.init()).toEqual({ type: NavigationActions.INIT });
-    expect(NavigationActions.init(data)).toEqual({
+    expect(NavigationActions.init({ params })).toEqual({
       type: NavigationActions.INIT,
-      ...data,
+      params,
     });
   });
 
   it('exports navigate action and type', () => {
-    expect(NavigationActions.navigate()).toEqual({
+    expect(NavigationActions.navigate({ routeName: 'test' })).toEqual({
       type: NavigationActions.NAVIGATE,
+      routeName: 'test',
     });
-    expect(NavigationActions.navigate(data)).toEqual({
+    expect(
+      NavigationActions.navigate({
+        routeName: 'test',
+        params,
+        action: navigateAction,
+      })
+    ).toEqual({
       type: NavigationActions.NAVIGATE,
-      ...data,
-    });
-  });
-
-  it('exports reset action and type', () => {
-    expect(NavigationActions.reset()).toEqual({
-      type: NavigationActions.RESET,
-    });
-    expect(NavigationActions.reset(data)).toEqual({
-      type: NavigationActions.RESET,
-      ...data,
+      routeName: 'test',
+      params,
+      action: {
+        type: NavigationActions.NAVIGATE,
+        routeName: 'another',
+      },
     });
   });
 
   it('exports setParams action and type', () => {
-    expect(NavigationActions.setParams()).toEqual({
+    expect(
+      NavigationActions.setParams({
+        key: 'test',
+        params,
+      })
+    ).toEqual({
       type: NavigationActions.SET_PARAMS,
-    });
-    expect(NavigationActions.setParams(data)).toEqual({
-      type: NavigationActions.SET_PARAMS,
-      ...data,
-    });
-  });
-
-  it('exports uri action and type', () => {
-    expect(NavigationActions.uri()).toEqual({ type: NavigationActions.URI });
-    expect(NavigationActions.uri(data)).toEqual({
-      type: NavigationActions.URI,
-      ...data,
+      key: 'test',
+      params,
     });
   });
 });
